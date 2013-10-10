@@ -14,20 +14,20 @@ def update_system():
     sudo('apt-get update')
     sudo('apt-get upgrade')
     sudo('apt-get install unattended-upgrades')
+    put('configs/10periodic', '/etc/apt/apt.conf.d/10periodic', use_sudo=True, mode=0700)
+    sudo('chown root:root /etc/apt/apt.conf.d/10periodic ')
 
-# configure unattended-upgrades
-#   sudo dpkg-reconfigure -plow unameattended-upgrades
 
 def install_base_soft():
     sudo('apt-get install -y vim')
-
+    #sudo('apt-get install -y logwatch')
+    #sudo('echo "/usr/sbin/logwatch --output mail --mailto admin@example.com --detail high" > /etc/cron.daily/00logwatch')
 
 def secure_system():
     sudo('apt-get install fail2ban')
     sudo ('cp /etc/fail2ban/jail.{conf,local}')
 
-
-# create user with password "simplepassword1234". Please, change it at first login!!!
+    # !!! create user with password "simplepassword1234". Please, change it at first login!!!
     sudo('useradd -U -s /bin/bash -p "pacHXCdIdvdUw" -m %s' % admin_user_name)
     sudo('mkdir /home/%s/.ssh' % admin_user_name)
     sudo('chmod 700 /home/%s/.ssh' % admin_user_name)
@@ -35,9 +35,8 @@ def secure_system():
     sudo('chmod 400 /home/%s/.ssh/authorized_keys' % admin_user_name)
     sudo('chown %s:admin /home/%s -R' % (admin_user_name,admin_user_name))
 
-#config sshd
-#PermitEmptyPasswords no
-
+    #config sshd
+    sudo("sed -i'.old' 's/^PermitEmptyPasswords [Yy]es/PermitEmptyPasswords no/' /etc/ssh/sshd_config")
     sudo("sed -i'.old' 's/^PermitRootLogin [Yy]es/PermitRootLogin no/' /etc/ssh/sshd_config")
     with settings(warn_only=True):
             if run('cat /etc/ssh/sshd_config | grep -e "^PasswordAuthentication [Yy]es"').failed:
@@ -50,6 +49,10 @@ def secure_system():
     # config iptables
     sudo('mkdir /etc/iptables')
     put('configs/rules', '/etc/iptables', use_sudo=True)
+    sudo('echo "#!/bin/sh" >> /etc/network/if-pre-up.d/iptables')
+    sudo('echo "iptables-restore < /etc/iptables/rules" >> /etc/network/if-pre-up.d/iptables')
+    sudo('chmod +x /etc/network/if-pre-up.d/iptables')
+
 
 def install_mysql():
     sudo("echo mysql-server-5.1 mysql-server/root_password password %s | debconf-set-selections" % (mysql_password) )
@@ -73,6 +76,6 @@ def do_it():
     install_nginx()
 
 def test2():
-    #sudo('mkdir /etc/iptables')
-    put('configs/rules', '/etc/iptables', use_sudo=True, mode=0700)
-    sudo('chown root:root /etc/iptables/ -R ')
+    update_system()
+    secure_system()
+    install_base_soft()
