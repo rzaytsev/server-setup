@@ -15,7 +15,7 @@
 #-A OUTPUT -p udp --dport 67:68 --sport 67:68 -j ACCEPT
 
 # Outbound DNS lookups
--A OUTPUT -o eth0 -p udp -m udp --dport 53 -j ACCEPT
+-A OUTPUT -p udp -m udp --dport 53 -j ACCEPT
 
 # Outbound PING requests
 -A OUTPUT -p icmp -j ACCEPT
@@ -24,10 +24,14 @@
 -A OUTPUT -p udp --dport 123 --sport 123 -j ACCEPT
 
 # SSH
--A INPUT  -i eth0 -p tcp -m tcp --dport 22 -m state --state NEW -j ACCEPT
+-A INPUT -p tcp -m tcp --dport 22 -m state --state NEW -j ACCEPT
+
+# Inbound HTTP
+-A INPUT -p tcp -m tcp --dport 80 -m state --state NEW -j ACCEPT
+-A INPUT -p tcp -m tcp --dport 443 -m state --state NEW -j ACCEPT
 
 # Outbound HTTP
--A OUTPUT -o eth0 -p tcp -m tcp --dport 80 -m state --state NEW -j ACCEPT
--A OUTPUT -o eth0 -p tcp -m tcp --dport 443 -m state --state NEW -j ACCEPT
+-A OUTPUT -p tcp -m tcp --dport 80 -m state --state NEW -j ACCEPT
+-A OUTPUT -p tcp -m tcp --dport 443 -m state --state NEW -j ACCEPT
 
 COMMIT

@@ -11,9 +11,9 @@ def host_type():
     run('uname -s')
 
 def update_system():
-    sudo('apt-get update')
-    sudo('apt-get upgrade')
-    sudo('apt-get install unattended-upgrades')
+    sudo('apt-get update -y ')
+    #sudo('apt-get upgrade -y')
+    sudo('apt-get install -y unattended-upgrades')
     put('configs/10periodic', '/etc/apt/apt.conf.d/10periodic', use_sudo=True, mode=0700)
     sudo('chown root:root /etc/apt/apt.conf.d/10periodic ')
 
@@ -24,11 +24,11 @@ def install_base_soft():
     #sudo('echo "/usr/sbin/logwatch --output mail --mailto admin@example.com --detail high" > /etc/cron.daily/00logwatch')
 
 def secure_system():
-    sudo('apt-get install fail2ban')
+    sudo('apt-get install -y fail2ban')
     sudo ('cp /etc/fail2ban/jail.{conf,local}')
 
     # !!! create user with password "simplepassword1234". Please, change it at first login!!!
-    sudo('useradd -U -s /bin/bash -p "pacHXCdIdvdUw" -m %s' % admin_user_name)
+    sudo('useradd -g admin -s /bin/bash -p "pacHXCdIdvdUw" -m %s' % admin_user_name)
     sudo('mkdir /home/%s/.ssh' % admin_user_name)
     sudo('chmod 700 /home/%s/.ssh' % admin_user_name)
     sudo('echo "%s" >> /home/%s/.ssh/authorized_keys' % (ssh_key, admin_user_name))
@@ -44,7 +44,7 @@ def secure_system():
             else:
                 sudo("sed -i'.old' 's/^PasswordAuthentication [Yy]es/PasswordAuthentication no/' /etc/ssh/sshd_config")
 
-    sudo("echo 'AllowUsers admin' >> /etc/ssh/sshd_config")
+    sudo("echo 'AllowUsers vagrant admin' >> /etc/ssh/sshd_config")
 
     # config iptables
     sudo('mkdir /etc/iptables')
@@ -57,16 +57,27 @@ def secure_system():
 def install_mysql():
     sudo("echo mysql-server-5.1 mysql-server/root_password password %s | debconf-set-selections" % (mysql_password) )
     sudo("echo mysql-server-5.1 mysql-server/root_password_again password %s | debconf-set-selections" % (mysql_password) )
-    sudo("apt-get -y install mysql-server")
+    sudo("apt-get -y install mysql-server libapache2-mod-auth-mysql php5-mysql")
     sudo("mysql_install_db")
 # ? sudo /usr/bin/mysql_secure_installation
 
 
 def install_nginx():
-    sudo("apt-get -y install nginx")
+    sudo("apt-get -y install nginx php5-fpm")
     sudo("service nginx start")
-    public_ip_address = sudo("ifconfig eth0 | grep inet | awk '{ print $2 }'")
-    print public_ip_address
+
+    sudo("sed -i'.old' 's/cgi.fix_pathinfo=1/cgi.fix_pathinfo=0/' /etc/php5/fpm/php.ini")
+    sudo("sed -i'.old' 's/listen = 127\.0\.0\.1\:9000/listen = \/var\/run\/php5-fpm.sock/' /etc/php5/fpm/pool.d/www.conf")
+    sudo('sudo service php5-fpm restart')
+
+    put('configs/nginx_site1', '/etc/nginx/sites-available/site1', use_sudo=True, mode=0755)
+    sudo('chown root:root /etc/nginx/sites-available/site1')
+    sudo('ln -s /etc/nginx/sites-available/site1 /etc/nginx/sites-enabled/site1')
+    sudo('rm /etc/nginx/sites-enabled/default')
+    put('configs/info.php', '/usr/share/nginx/www/info.php', use_sudo=True, mode=0755)
+    sudo('chown root:root /usr/share/nginx/www/info.php')
+    sudo("service nginx restart")
+
 
 def do_it():
     update_system()
@@ -74,8 +85,3 @@ def do_it():
     install_base_soft()
     install_mysql()
     install_nginx()
-
-def test2():
-    update_system()
-    secure_system()
-    install_base_soft()
