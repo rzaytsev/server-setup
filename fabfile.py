@@ -1,7 +1,7 @@
 # Install LNMP stack on Ubuntu 12.04.3 LTS (Digital Ocean)
 
 from __future__ import with_statement
-from fabric.api import run, sudo, settings, put
+from fabric.api import run, sudo, settings, put, cd
 
 ssh_key = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDOPy33dQ6dy6dU5jn8GKM/cXCkvdwDtLsi8ChQvREHl8cnIQNuD2upnnuBov3LgiuuexUE8A44S4MAhmMr7gBxtmBH6I/Md6Afsnaj1wGS00sC4qgHbfixylHyOZvTK1+tLa9TWepGuOguOnjPR/yyzcIYs8nXPMGq2f2AthFt13fpvc2UI18yli8+NENScVkgZ52vGsj3A7qgOBMHiCwVUcxyroc/NFjDKL9JkyyWcC4QImz7LtNTIsueWdrbkvaUjRrK0mKzqHxvninznJC6TQ4xBMqK2SUPEru6Pe0X5OZ5191k39e1SkChWbjTOnW05ZXDbGBgBJE1PFts4TYB servers's key"
 admin_user_name = 'admin'
@@ -79,9 +79,43 @@ def install_nginx():
     sudo("service nginx restart")
 
 
+def install_webasyst():
+    #sudo('apt-get -y install git')
+    path = '/usr/share/nginx/www/webasyst/'
+    sudo('mkdir '+ path)
+    with cd(path):
+        run('pwd')
+        sudo('git clone git://github.com/webasyst/webasyst-framework.git')
+        with cd(path + 'webasyst-framework/wa-config'):
+            run('pwd')
+            sudo ('cp apps.php.example apps.php')
+            sudo('cp config.php.example config.php')
+            sudo('cp db.php.example db.php')
+            sudo('cp locale.php.example locale.php')
+            sudo('cp SystemConfig.class.php.example SystemConfig.class.php')
+    sudo ('chmod 0775 '+path)
+
+def create_ssl_site(site_name = 'example'):
+    ssl_dir = '/etc/nginx/ssl'
+    with settings(warn_only=True):
+        if run("test -d %s" % ssl_dir).failed:
+            sudo('mkdir %s' % ssl_dir)
+    with cd(ssl_dir):
+        sudo ('openssl genrsa -des3 -out '+site_name+'.key 1024')
+        sudo ('sudo openssl req -new -key '+site_name+'.key -out '+site_name+'.csr')
+        sudo('cp '+site_name+'.key '+site_name+'.key.org')
+        sudo('openssl rsa -in '+site_name+'.key.org -out '+site_name+'.key')
+        sudo('openssl x509 -req -days 365 -in '+site_name+'.csr -signkey '+site_name+'.key -out '+site_name+'.crt')
+    put('configs/example_ssl','/etc/nginx/sites-available/'+site_name, use_sudo=True, mode=0755)
+    sudo("sed -i'.old' 's/\*name\*/"+site_name+"/' /etc/nginx/sites-available/"+site_name)
+    sudo('ln -s /etc/nginx/sites-available/'+site_name+' /etc/nginx/sites-enabled/'+site_name+'')
+    sudo("service nginx restart")
+
 def do_it():
     update_system()
     secure_system()
     install_base_soft()
     install_mysql()
     install_nginx()
+
+
